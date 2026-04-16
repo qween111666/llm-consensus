@@ -1,7 +1,7 @@
 """Core multi-model consensus engine."""
 from __future__ import annotations
 import concurrent.futures
-import textwrap
+import threading
 from dataclasses import dataclass, field
 from typing import Optional
 from .models import ModelResponse
@@ -29,6 +29,7 @@ class ConsensusEngine:
         self.judge_model = judge_model
         self.verbose = verbose
         self._total_calls = 0
+        self._calls_lock = threading.Lock()
 
     def run(self, prompt: str, system: Optional[str] = None) -> ConsensusResult:
         history = []
@@ -53,7 +54,9 @@ class ConsensusEngine:
             results = []
             for f in concurrent.futures.as_completed(futures):
                 try:
-                    results.append(f.result()); self._total_calls += 1
+                    results.append(f.result())
+                    with self._calls_lock:
+                        self._total_calls += 1
                 except Exception as e:
                     print(f"[WARN] {futures[f].model_id} failed: {e}")
         return results
@@ -81,9 +84,12 @@ class ConsensusEngine:
         msgs = [{"role":"system","content":"Reply UNANIMOUS or DIVERGENT. One word only."},
                 {"role":"user","content":combined}]
         try:
-            r = self.judge_model.ask(msgs); self._total_calls += 1
+            r = self.judge_model.ask(msgs)
+            with self._calls_lock:
+                self._total_calls += 1
             return r.content.upper().startswith("UNANIMOUS")
-        except: return False
+        except Exception:
+            return False
 
     def _norm(self, text):
         t = text.strip().lower()
