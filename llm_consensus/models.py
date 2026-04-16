@@ -14,7 +14,10 @@ class ModelResponse:
 class OpenAIModel:
     def __init__(self, model: str = "gpt-4o", instance_id: int = 1):
         import openai
-        self.client = openai.OpenAI(api_key=os.environ["OPENAI_API_KEY"])
+        api_key = os.environ.get("OPENAI_API_KEY")
+        if not api_key:
+            raise RuntimeError("OPENAI_API_KEY environment variable is not set")
+        self.client = openai.OpenAI(api_key=api_key)
         self.model = model
         self.instance_id = instance_id
         self.model_id = f"{model}-instance-{instance_id}"
@@ -26,10 +29,13 @@ class OpenAIModel:
 class AnthropicModel:
     def __init__(self, model: str = "claude-sonnet-4-6", instance_id: int = 1):
         import anthropic
-        self.client = anthropic.Anthropic(api_key=os.environ["ANTHROPIC_API_KEY"])
+        api_key = os.environ.get("ANTHROPIC_API_KEY")
+        if not api_key:
+            raise RuntimeError("ANTHROPIC_API_KEY environment variable is not set")
+        self.client = anthropic.Anthropic(api_key=api_key)
         self.model = model
         self.instance_id = instance_id
-        self.model_id = f"claude-{model}-instance-{instance_id}"
+        self.model_id = f"{model}-instance-{instance_id}"
 
     def ask(self, messages: list[dict], round_num: int = 0) -> ModelResponse:
         system_msgs = [m["content"] for m in messages if m["role"] == "system"]
@@ -43,11 +49,14 @@ class AnthropicModel:
 class GeminiModel:
     def __init__(self, model: str = "gemini-1.5-pro", instance_id: int = 1):
         import google.generativeai as genai
-        genai.configure(api_key=os.environ["GEMINI_API_KEY"])
+        api_key = os.environ.get("GEMINI_API_KEY") or os.environ.get("GOOGLE_API_KEY")
+        if not api_key:
+            raise RuntimeError("GEMINI_API_KEY (or GOOGLE_API_KEY) environment variable is not set")
+        genai.configure(api_key=api_key)
         self.client = genai.GenerativeModel(model)
         self.model = model
         self.instance_id = instance_id
-        self.model_id = f"gemini-{model}-instance-{instance_id}"
+        self.model_id = f"{model}-instance-{instance_id}"
 
     def ask(self, messages: list[dict], round_num: int = 0) -> ModelResponse:
         parts = "\n\n".join(f"[{m['role'].upper()}]: {m['content']}" for m in messages)
